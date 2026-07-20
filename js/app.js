@@ -27,10 +27,11 @@ function getHierarchyDescription(rank) {
 }
 
 function isAssignable(emp) {
-  // رئيس الفئة (rank 1) ورؤساء الأقسام (rank 2) فقط غير قابلين للفرز
-  // المشرفون (rank 3) قابلين للفرز لأنهم يشرفون على نقاط محددة
+  // رئيس الفئة (rank 1) ورؤساء الأقسام (rank 2) والمشرفون (rank 3) غير قابلين للفرز
+  // هؤلاء يشرفون على أكثر من نقطة ولا يُفرزون تلقائياً
+  // الموظفون العاديون فقط (rank 99) قابلين للفرز
   const rank = getHierarchyRank(emp.title);
-  return rank > 2 || rank === 99;
+  return rank === 99;
 }
 
 // ===== Employee Helpers =====
@@ -719,7 +720,7 @@ function getUnassignedEmployees() {
   const unassigned = [];
 
   employees.forEach(e => {
-    if (!isAssignable(e)) return; // Excludes: رئيس الفئة, رؤساء الأقسام, المشرفون
+    if (!isAssignable(e)) return; // Excludes: رئيس الفئة, رؤساء الأقسام, المشرفون (لا يُفرزون تلقائياً)
     if (getEmployeePoint(e.uid)) return;
     if (isUnavailable(e)) return;
     unassigned.push(e);
@@ -1785,30 +1786,6 @@ function resetAllLeaves() {
 
 
 // ===== Reset All Assignments =====
-// ===== Force Full Data Reset =====
-function forceResetAllData() {
-  const confirmText = prompt('⚠️ تحذير شديد!\n\nسيتم حذف جميع البيانات المحلية وإعادة توليدها من الصفر.\n\n• جميع الموظفين سيعاد توليدهم بأرقام ذاتية جديدة\n• جميع الإجازات ستحذف\n• جميع الفرزات ستحذف\n• جميع النقاط ستعود للقيم الافتراضية\n\nاكتب \"نعم\" للتأكيد:');
-  if (confirmText !== 'نعم') {
-    toast('❌ تم إلغاء إعادة التعيين', 'warning');
-    return;
-  }
-
-  // Clear all localStorage data related to the app (except auth)
-  const keysToRemove = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && !key.includes('customs_auth')) {
-      keysToRemove.push(key);
-    }
-  }
-  keysToRemove.forEach(key => localStorage.removeItem(key));
-
-  toast('✅ تم إعادة تعيين البيانات. سيتم إعادة تحميل الصفحة...', 'success');
-  setTimeout(() => {
-    window.location.reload();
-  }, 1500);
-}
-
 function resetAllAssignments() {
   const as = DB.get('assignments', {});
   const points = DB.get('points', []);
