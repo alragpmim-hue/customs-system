@@ -1,3 +1,30 @@
+// ===== CACHE BUSTER v2.1 =====
+// يضمن ظهور التحديثات على جميع الأجهزة فوراً
+(function() {
+  const APP_VERSION = '2.1';
+  const CACHE_KEY = 'customs_app_v';
+
+  const saved = localStorage.getItem(CACHE_KEY);
+
+  if (saved && saved !== APP_VERSION) {
+    console.log('🔄 تحديث جديد detected:', APP_VERSION);
+
+    // مسح كاش المتصفح فقط (لا يمسح بياناتك!)
+    if ('caches' in window) {
+      caches.keys().then(names => names.forEach(n => caches.delete(n)));
+    }
+
+    localStorage.setItem(CACHE_KEY, APP_VERSION);
+
+    // إعادة تحميل بدون كاش
+    setTimeout(() => location.reload(true), 300);
+    return;
+  }
+
+  localStorage.setItem(CACHE_KEY, APP_VERSION);
+  console.log('✅ الإصدار الحالي:', APP_VERSION);
+})();
+
 // ===== Main Application Logic =====
 // Customs System v2.0 - Improved & Secured
 
