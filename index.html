@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1F4E78">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="الجمركية">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="المنظومة الجمركية الذكية - إدارة الفرز والموظفين">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self';">
+
+<title>المنظومة الجمركية الذكية</title>
+
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%231F4E78' width='192' height='192' rx='24'/%3E%3Ctext x='96' y='120' font-size='100' text-anchor='middle' fill='white'%3E🛡️%3C/text%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* === Arabic Date Input Fix === */
+input[type="date"] { 
+  direction: ltr !important; 
+  text-align: left !important;
+  font-family: 'Cairo', sans-serif;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+input[type="date"]:placeholder-shown,
+input[type="date"]:invalid,
+input[type="date"]::-webkit-datetime-edit {
+  color: transparent !important;
+}
+input[type="date"]:focus,
+input[type="date"]:valid {
+  color: #1e293b !important;
+}
+input[type="date"]::-webkit-calendar-picker-indicator { 
+  margin-right: auto; 
+  margin-left: 8px; 
+  cursor: pointer;
+  opacity: 1;
+}
+.modal-body input[type="date"],
+.form-group input[type="date"] {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+}
+
+.date-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+.date-input-wrapper input[type="date"] {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  padding-left: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  outline: none;
+  background: white;
+  position: relative;
+  z-index: 2;
+}
+.date-input-wrapper input[type="date"]:placeholder-shown {
+  color: transparent !important;
+}
+.date-input-wrapper .date-placeholder {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 0.85rem;
+  pointer-events: none;
+  z-index: 1;
+  direction: rtl;
+}
+.date-input-wrapper input[type="date"]:focus ~ .date-placeholder,
+.date-input-wrapper input[type="date"]:valid ~ .date-placeholder {
+  display: none;
+}
+.date-input-wrapper .date-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748B;
+  font-size: 0.9rem;
+  pointer-events: none;
+  z-index: 3;
+}
+
+:root {
+  --primary: #1F4E78;
+  --dark: #0F172A;
+  --surface: #1E293B;
+  --scaffold: #F1F5F9;
+  --accent: #F59E0B;
+  --danger: #C2410C;
+  --success: #059669;
+  --warning: #D97706;
+  --text: #334155;
+  --text-light: #64748B;
+  --border: #E2E8F0;
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
+html { scroll-behavior: smooth; }
+body { background: var(--scaffold); color: var(--text); min-height: 100vh; overscroll-behavior-y: none; }
+
+.app-header {
+  background: var(--dark);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-lg);
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+.app-header h1 { font-size: 1rem; font-weight: 700; }
+.app-header .actions { display: flex; gap: 0.5rem; align-items: center; }
+.btn-icon {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: white;
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: 0.2s;
+  font-size: 1rem;
+}
+.btn-icon:hover { background: rgba(255,255,255,0.2); }
+.btn-icon.amber { color: var(--accent); }
+
+.tabs-bar {
+  background: var(--surface);
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.tabs-bar::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex: 1;
+  padding: 0.85rem 0.5rem;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.6);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: 0.2s;
+  white-space: nowrap;
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  touch-action: manipulation;
+}
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-btn:hover { color: white; }
+
+.container { padding: 1rem; max-width: 1200px; margin: 0 auto; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+
+.card {
+  background: white;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.card-title { font-weight: 700; color: var(--primary); font-size: 0.95rem; }
+
+.search-box {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+.search-box input {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: 0.2s;
+  -webkit-appearance: none;
+}
+.search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(31,78,120,0.1); }
+.btn {
+  padding: 0.7rem 1.2rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.85rem;
+  touch-action: manipulation;
+  -webkit-appearance: none;
+}
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: #163a5c; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-danger:hover { background: #9a3412; }
+.btn-success { background: var(--success); color: white; }
+.btn-warning { background: var(--warning); color: white; }
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-sm { padding: 0.45rem 0.9rem; font-size: 0.78rem; }
+
+.emp-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 150;
+  display: none;
+}
+.emp-dropdown.active { display: block; }
+.emp-dropdown-item {
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.emp-dropdown-item:last-child { border-bottom: none; }
+.emp-dropdown-item:hover { background: #F1F5F9; }
+.emp-dropdown-item .emp-name { font-weight: 600; color: var(--text); }
+.emp-dropdown-item .emp-meta { font-size: 0.75rem; color: var(--text-light); }
+.emp-dropdown-item .emp-type {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.emp-dropdown-item .emp-type.admin { background: #ECFDF5; color: #059669; }
+.emp-dropdown-item .emp-type.resident { background: #FFFBEB; color: #D97706; }
+.emp-dropdown-empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.85rem;
+}
+
+.emp-result {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: white;
+  box-shadow: var(--shadow);
+}
+.emp-result-header {
+  padding: 1.1rem;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.emp-result-header h3 { font-size: 1rem; }
+.status-badge {
+  background: rgba(255,255,255,0.25);
+  padding: 0.3rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.emp-result-body { padding: 1.25rem; }
+.emp-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+.emp-info-grid .label { font-size: 0.75rem; color: var(--text-light); }
+.emp-info-grid .value { font-weight: 700; color: var(--primary); font-size: 0.9rem; }
+.location-box {
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  border: 1px solid;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.points-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+.point-card {
+  padding: 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: 0.2s;
+  position: relative;
+  background: white;
+}
+.point-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.point-card h4 { font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 0.3rem; }
+.point-card .meta { font-size: 0.72rem; font-weight: 600; }
+.point-card .actions { display: flex; gap: 0.3rem; justify-content: flex-end; margin-top: 0.5rem; }
+.point-card .actions button {
+  background: none; border: none; cursor: pointer; color: var(--text-light); font-size: 0.85rem; padding: 0.3rem;
+  width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+}
+.point-card .actions button:hover { color: var(--primary); background: rgba(0,0,0,0.05); }
+
+.stats-bar {
+  background: var(--surface);
+  color: white;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.stats-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+}
+.stats-bar-header strong { color: var(--accent); }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  text-align: center;
+}
+.stat-item .label { font-size: 0.68rem; color: rgba(255,255,255,0.7); }
+.stat-item .value { font-size: 0.95rem; font-weight: 700; }
+
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.list-item:last-child { border-bottom: none; }
+.list-item .title { font-weight: 600; }
+.list-item .subtitle { font-size: 0.75rem; color: var(--text-light); }
+.list-item .actions { display: flex; gap: 0.3rem; }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: white;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  -webkit-overflow-scrolling: touch;
+}
+.modal-header {
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 1;
+}
+.modal-header h3 { font-size: 0.95rem; color: var(--primary); }
+.modal-body { padding: 1rem 1.2rem; }
+.modal-footer {
+  padding: 1rem 1.2rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  position: sticky;
+  bottom: 0;
+  background: white;
+}
+
+.form-group { margin-bottom: 0.85rem; }
+.form-group label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text); }
+.form-group input, .form-group select {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  outline: none;
+  -webkit-appearance: none;
+}
+.form-group input:focus { border-color: var(--primary); }
+.form-group select { background: white; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.chip {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: white;
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: 0.2s;
+  user-select: none;
+  touch-action: manipulation;
+}
+.chip.selected { background: #FDE68A; border-color: var(--accent); color: var(--dark); }
+.chip.rest-day { background: #F3F4F6; color: var(--text-light); cursor: not-allowed; }
+
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 90%;
+  max-width: 400px;
+  pointer-events: none;
+}
+.toast {
+  padding: 0.85rem 1.25rem;
+  border-radius: 10px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow-lg);
+  animation: slideDown 0.3s ease;
+  text-align: center;
+  pointer-events: auto;
+}
+.toast.success { background: var(--success); }
+.toast.error { background: #DC2626; }
+.toast.warning { background: var(--warning); }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.install-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--primary);
+  color: white;
+  padding: 0.75rem 1rem;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 250;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.install-banner.active { display: flex; }
+.install-banner button {
+  background: var(--accent);
+  color: var(--dark);
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .points-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .emp-info-grid { grid-template-columns: repeat(2, 1fr); }
+  .app-header h1 { font-size: 0.9rem; }
+  .tab-btn { font-size: 0.75rem; padding: 0.7rem 0.3rem; }
+}
+
+.point-collapsible { transition: box-shadow 0.2s; }
+.point-collapsible:hover { box-shadow: var(--shadow-lg); }
+.point-toggle-icon { font-size: 0.85rem; }
+
+.hidden { display: none !important; }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="install-banner" id="installBanner">
+  <span>📲 ثبّت التطبيق على شاشتك الرئيسية</span>
+  <button onclick="installApp()">تثبيت</button>
+</div>
+
+<header class="app-header">
+  <h1 id="headerTitle">👤 بوابة الموظف الجمركي الاستعلامية</h1>
+  <div class="actions">
+    <button class="btn-icon amber hidden" id="activityLogBtn" onclick="openActivityLogModal()" title="سجل العمليات">
+      <i class="fas fa-history"></i>
+    </button>
+    <button class="btn-icon amber hidden" id="lockAdminBtn" onclick="lockAdmin()">
+      <i class="fas fa-lock"></i>
+    </button>
+  </div>
+</header>
+
+<div class="tabs-bar" id="employeeTabs">
+  <button class="tab-btn active" onclick="switchTab('search')">
+    <i class="fas fa-user-search"></i> استعلامي الشخصي
+  </button>
+  <button class="tab-btn" onclick="switchTab('points')">
+    <i class="fas fa-layer-group"></i> دليل نقاط الفرز
+  </button>
+</div>
+
+<div class="tabs-bar hidden" id="adminTabs">
+  <button class="tab-btn active" onclick="switchAdminTab('pointsAdmin')">
+    <i class="fas fa-sitemap"></i> نقاط الفرز
+  </button>
+  <button class="tab-btn" onclick="switchAdminTab('employees')">
+    <i class="fas fa-id-badge"></i> الموظفين
+  </button>
+  <button class="tab-btn" onclick="switchAdminTab('leaves')">
+    <i class="fas fa-calendar-check"></i> الإجازات
+  </button>
+</div>
+
+<div class="container">
+
+  <!-- Employee Search Tab -->
+  <div id="tab-search" class="tab-content">
+    <div class="card" style="text-align:center; padding:1.5rem;">
+      <h2 style="color:var(--primary); margin-bottom:1rem; font-size:1.1rem;">البحث الذاتي عن الفرز الميداني</h2>
+      <div class="search-box" id="searchBox1">
+        <input type="text" id="empSearchInput" placeholder="أدخل الاسم الكامل أو الرقم الذاتي..." oninput="filterEmpDropdown('empSearchInput','dropdown1')" onfocus="showEmpDropdown('dropdown1')" onkeydown="if(event.key==='Enter')searchEmployee()" autocomplete="off">
+        <button class="btn btn-primary" onclick="searchEmployee()">
+          <i class="fas fa-search"></i> بحث
+        </button>
+        <div class="emp-dropdown" id="dropdown1"></div>
+      </div>
+    </div>
+    <div id="searchResult"></div>
+  </div>
+
+  <!-- Employee Points Guide Tab -->
+  <div id="tab-points" class="tab-content hidden">
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-header">
+        <span class="card-title"><i class="fas fa-search"></i> البحث عن نقطة فرز</span>
+      </div>
+      <div class="search-box" id="searchBox2">
+        <input type="text" id="pointGuideSearch" placeholder="ابحث بالاسم أو الرقم الذاتي..." oninput="filterEmpDropdown('pointGuideSearch','dropdown2')" onfocus="showEmpDropdown('dropdown2')" onkeydown="if(event.key==='Enter')searchPointGuide()" autocomplete="off">
+        <button class="btn btn-primary" onclick="searchPointGuide()">
+          <i class="fas fa-search"></i> بحث
+        </button>
+        <div class="emp-dropdown" id="dropdown2"></div>
+      </div>
+      <div id="pointGuideResult"></div>
+    </div>
+    <div id="pointsGuide"></div>
+  </div>
+
+  <!-- Admin: Points Management -->
+  <div id="tab-pointsAdmin" class="tab-content hidden">
+    <div class="stats-bar" id="dailyStats"></div>
+    <div id="unassignedPool" class="hidden"></div>
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-header">
+        <span class="card-title"><i class="fas fa-search-location"></i> استعلام سريع عن موظف (أين فرز؟)</span>
+      </div>
+      <div class="search-box" id="searchBox3">
+        <input type="text" id="adminPointsEmpSearch" placeholder="ابحث بالاسم أو الرقم الذاتي..." oninput="filterEmpDropdown('adminPointsEmpSearch','dropdown3')" onfocus="showEmpDropdown('dropdown3')" onkeydown="if(event.key==='Enter')adminPointsEmpLookup()" autocomplete="off">
+        <button class="btn btn-primary" onclick="adminPointsEmpLookup()">
+          <i class="fas fa-search"></i> استعلام
+        </button>
+        <div class="emp-dropdown" id="dropdown3"></div>
+      </div>
+      <div id="adminPointsEmpResult"></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><i class="fas fa-sitemap"></i> نقاط الخدمة</span>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-ghost btn-sm" onclick="exportPointsPDF()">
+            <i class="fas fa-file-pdf"></i> PDF
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="openAddPointModal()">
+            <i class="fas fa-plus"></i> إضافة
+          </button>
+        </div>
+      </div>
+      <div class="search-box" style="margin-bottom:0.75rem;">
+        <input type="text" id="pointSearchInput" placeholder="🔍 ابحث عن نقطة..." oninput="filterPoints()" autocomplete="off">
+      </div>
+      <div class="points-grid" id="pointsGrid"></div>
+    </div>
+  </div>
+
+  <!-- Admin: Employees -->
+  <div id="tab-employees" class="tab-content hidden">
+    <div class="card" style="margin-bottom:1rem; background: linear-gradient(135deg, #1F4E78 0%, #0F172A 100%); color: white; border: none;">
+      <div class="card-header" style="margin-bottom:0.5rem;">
+        <span class="card-title" style="color: #F59E0B;"><i class="fas fa-file-excel"></i> إدارة البيانات من Excel</span>
+      </div>
+      <p style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-bottom:0.75rem;">
+        ارفع ملف Excel يحتوي على بيانات الموظفين، أو صدّر البيانات الحالية للتعديل.
+      </p>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-amber btn-sm" onclick="document.getElementById('excelUpload').click()">
+          <i class="fas fa-upload"></i> رفع ملف Excel
+        </button>
+        <input type="file" id="excelUpload" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importFromExcel(event)">
+        <button class="btn btn-success btn-sm" onclick="exportToExcel()">
+          <i class="fas fa-download"></i> تصدير إلى Excel
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadExcelTemplate()" style="color:rgba(255,255,255,0.8); border-color:rgba(255,255,255,0.3);">
+          <i class="fas fa-table"></i> تحميل قالب
+        </button>
+      </div>
+      <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.1);">
+        <div style="font-size:0.75rem; color:rgba(255,255,255,0.6); margin-bottom:0.5rem;">
+          <i class="fas fa-shield-alt"></i> النسخ الاحتياطية (JSON) — تحفظ جميع البيانات بما فيها الفرز والإجازات
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="exportBackupJSON()">
+            <i class="fas fa-file-export"></i> نسخة احتياطية JSON
+          </button>
+          <button class="btn btn-warning btn-sm" onclick="document.getElementById('backupUpload').click()">
+            <i class="fas fa-file-import"></i> استعادة نسخة
+          </button>
+          <input type="file" id="backupUpload" accept=".json" style="display:none;" onchange="importBackupJSON(event)">
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-header">
+        <span class="card-title"><i class="fas fa-search-location"></i> استعلام سريع عن موظف</span>
+      </div>
+      <div class="search-box" id="searchBox4">
+        <input type="text" id="adminEmpLookupInput" placeholder="ابحث بالاسم أو الرقم الذاتي..." oninput="filterEmpDropdown('adminEmpLookupInput','dropdown4')" onfocus="showEmpDropdown('dropdown4')" onkeydown="if(event.key==='Enter')adminEmpLookup()" autocomplete="off">
+        <button class="btn btn-primary" onclick="adminEmpLookup()">
+          <i class="fas fa-search"></i> استعلام
+        </button>
+        <div class="emp-dropdown" id="dropdown4"></div>
+      </div>
+      <div id="adminEmpLookupResult"></div>
+    </div>
+    <div class="stats-bar" id="empStatsBar" style="margin-bottom:1rem;">
+      <div class="stats-bar-header">
+        <span><i class="fas fa-chart-pie" style="color:var(--accent);"></i> <strong>إحصائيات الكادر</strong></span>
+      </div>
+      <div class="stats-grid" id="empStatsGrid">
+        <div class="stat-item"><div class="label">إداري</div><div class="value" style="color:#93C5FD;" id="statAdmin">0</div></div>
+        <div class="stat-item"><div class="label">مقيم</div><div class="value" style="color:#5EEAD4;" id="statResident">0</div></div>
+        <div class="stat-item"><div class="label">المجموع</div><div class="value" style="color:#FDBA74;" id="statTotal">0</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><i class="fas fa-users"></i> سجل الكادر الجمركي</span>
+        <button class="btn btn-ghost btn-sm" onclick="exportEmployeesPDF()">
+          <i class="fas fa-file-pdf"></i> PDF
+        </button>
+      </div>
+      <div class="search-box">
+        <input type="text" id="empManageSearch" placeholder="ابحث بالاسم أو الرقم..." oninput="filterEmployees()" autocomplete="off">
+      </div>
+      <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="switchEmpTab('admin')" id="empTabAdmin">الإداريين</button>
+        <button class="btn btn-ghost btn-sm" onclick="switchEmpTab('resident')" id="empTabResident">المقيمين</button>
+        <button class="btn btn-success btn-sm" onclick="openEmployeeForm()" style="margin-right:auto;">
+          <i class="fas fa-plus"></i> إضافة موظف
+        </button>
+      </div>
+      <div id="employeesList"></div>
+    </div>
+  </div>
+
+  <!-- Admin: Leaves -->
+  <div id="tab-leaves" class="tab-content hidden">
+    <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="switchLeaveTab('approved')" id="leaveTabApproved">الإجازات المعتمدة</button>
+      <button class="btn btn-ghost btn-sm" onclick="switchLeaveTab('pending')" id="leaveTabPending">الطلبات المعلقة</button>
+      <button class="btn btn-success btn-sm" onclick="openDirectLeaveModal()" style="margin-right:auto;">
+        <i class="fas fa-plus"></i> تسجيل إجازة
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="exportLeavesPDF()">
+        <i class="fas fa-file-pdf"></i> PDF
+      </button>
+    </div>
+    <div id="leavesContent"></div>
+  </div>
+
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalBody" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="modalTitle">عنوان</h3>
+      <button class="btn-icon" onclick="closeModal()" style="color:var(--text-light);width:32px;height:32px;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="modalContent"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<!-- PDF Capture Container -->
+<div id="pdfCapture" style="position:fixed;left:-9999px;top:0;background:white;padding:20px;width:800px;z-index:-1;direction:rtl;font-family:Cairo,sans-serif;"></div>
+
+<!-- Scripts -->
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/data-init.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('SW registered'))
+      .catch(err => console.log('SW error', err));
+  });
+}
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('active');
+});
+
+function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(choice => {
+      if (choice.outcome === 'accepted') {
+        document.getElementById('installBanner').classList.remove('active');
+      }
+      deferredPrompt = null;
+    });
+  }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.search-box')) {
+    document.querySelectorAll('.emp-dropdown').forEach(d => d.classList.remove('active'));
+  }
+});
+</script>
+</body>
+</html>
