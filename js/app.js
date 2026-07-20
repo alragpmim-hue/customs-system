@@ -670,10 +670,11 @@ function renderPointsGuide() {
   const as = DB.get('assignments', {});
   let html = '';
   pts.forEach((p, idx) => {
-    const staff = (as[p.id] || []).map(uid => {
-      const e = getEmployeeByUid(uid);
-      return e ? `<div class="list-item"><span>${escapeHTML(e.name)} (${escapeHTML(e.job)})</span></div>` : '';
-    }).join('');
+    const staff = (as[p.id] || [])
+      .map(uid => getEmployeeByUid(uid))
+      .filter(e => e && isAssignable(e))
+      .map(e => `<div class="list-item"><span>${escapeHTML(e.name)} (${escapeHTML(e.job)})</span></div>`)
+      .join('');
     const count = (as[p.id] || []).length;
     const hasStaff = staff.length > 0;
     html += `
@@ -957,7 +958,7 @@ function openPointDetails(pid) {
   const as = DB.get('assignments', {});
   const leaves = DB.get('leaves', {});
 
-  const assignedHere = (as[pid] || []).map(uid => getEmployeeByUid(uid)).filter(Boolean);
+  const assignedHere = (as[pid] || []).map(uid => getEmployeeByUid(uid)).filter(e => e && isAssignable(e));
 
   const allAssignable = employees.filter(e => {
     if (!isAssignable(e)) return false;
