@@ -1,12 +1,12 @@
-const CACHE_NAME = 'customs-v2';
+const CACHE_NAME = 'customs-v2.2';
 const urlsToCache = [
   './',
   './index.html',
-  './js/db.js',
-  './js/auth.js',
-  './js/utils.js',
-  './js/data-init.js',
-  './js/app.js',
+  './js/db.js?v=2.2',
+  './js/auth.js?v=2.2',
+  './js/utils.js?v=2.2',
+  './js/data-init.js?v=2.2',
+  './js/app.js?v=2.2',
   './data/employees.json',
   './manifest.json'
 ];
