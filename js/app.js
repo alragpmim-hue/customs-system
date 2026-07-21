@@ -1,7 +1,7 @@
 // ===== CACHE BUSTER v2.2 =====
 // يضمن ظهور التحديثات على جميع الأجهزة فوراً
 (function() {
-  const APP_VERSION = '2.2';
+  const APP_VERSION = '2026.07.21-1025';
   const CACHE_KEY = 'customs_app_v';
 
   const saved = localStorage.getItem(CACHE_KEY);
