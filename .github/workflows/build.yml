@@ -1,0 +1,59 @@
+name: Auto Build & Deploy
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: جلب الكود
+        uses: actions/checkout@v3
+
+      - name: استخراج رقم الإصدار
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=$(echo ${{ github.ref }} | sed 's/refs\/tags\/v//')
+          else
+            VERSION=$(date +'%Y.%m.%d-%H%M')
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "📌 الإصدار: $VERSION"
+
+      - name: تحديث الإصدار في الملفات
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          sed -i "s/?v=[0-9.]\+/?v=$VERSION/g" index.html
+          sed -i "s/customs-v[0-9.]\+/customs-v$VERSION/g" service-worker.js
+          sed -i "s/APP_VERSION = '[^']\+';/APP_VERSION = '$VERSION';/g" js/app.js
+          echo "✅ تم تحديث الملفات"
+
+      - name: إنشاء ملف ZIP
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          zip -r customs-system-v${VERSION}.zip index.html manifest.json service-worker.js data/ js/
+
+      - name: حفظ التعديلات
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add index.html service-worker.js js/app.js
+          git diff --cached --quiet || git commit -m "🔖 Auto-update to v${{ steps.version.outputs.VERSION }}"
+          git push
+
+      - name: رفع ZIP كـ Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: customs-system-v${{ steps.version.outputs.VERSION }}
+          path: customs-system-v*.zip
+
+      - name: إنشاء Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: customs-system-v*.zip
+          generate_release_notes: true
