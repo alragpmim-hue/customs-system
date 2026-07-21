@@ -1,13 +1,23 @@
-// ===== CACHE BUSTER v2.1 =====
+// ===== CACHE BUSTER v2.2 =====
 // يضمن ظهور التحديثات على جميع الأجهزة فوراً
 (function() {
-  const APP_VERSION = '2.1';
+  const APP_VERSION = '2.2';
   const CACHE_KEY = 'customs_app_v';
 
   const saved = localStorage.getItem(CACHE_KEY);
 
   if (saved && saved !== APP_VERSION) {
     console.log('🔄 تحديث جديد detected:', APP_VERSION);
+
+    // ⛔ إلغاء تسجيل Service Worker القديم
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => {
+          console.log('⛔ إلغاء SW قديم:', r.scope);
+          r.unregister();
+        });
+      });
+    }
 
     // مسح كاش المتصفح فقط (لا يمسح بياناتك!)
     if ('caches' in window) {
@@ -16,8 +26,8 @@
 
     localStorage.setItem(CACHE_KEY, APP_VERSION);
 
-    // إعادة تحميل بدون كاش
-    setTimeout(() => location.reload(true), 300);
+    // إعادة تحميل بدون كاش (تأخير أطول لإعطاء وقت لإلغاء SW)
+    setTimeout(() => location.reload(true), 500);
     return;
   }
 
