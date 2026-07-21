@@ -46,7 +46,7 @@ jobs:
           git push
 
       - name: رفع ZIP كـ Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: customs-system-v${{ steps.version.outputs.VERSION }}
           path: customs-system-v*.zip
