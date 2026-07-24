@@ -1,7 +1,7 @@
 // ===== CACHE BUSTER v2.1 =====
 // يضمن ظهور التحديثات على جميع الأجهزة فوراً
 (function() {
-  const APP_VERSION = '2026.07.24-0912';
+  const APP_VERSION = '2.1';
   const CACHE_KEY = 'customs_app_v';
 
   const saved = localStorage.getItem(CACHE_KEY);
@@ -2394,225 +2394,291 @@ function exportPointsPDF() {
   const pts = DB.get('points', []);
   const as = DB.get('assignments', {});
   const employees = DB.get('employees', []);
-  const leaves = DB.get('leaves', {});
   const div = document.getElementById('pdfCapture');
-  div.innerHTML = '';
-
-  let totalAdmin = 0, totalResident = 0, totalAssigned = 0;
-  pts.forEach(p => {
-    (as[p.id] || []).forEach(uid => {
-      const emp = employees.find(e => e.uid === uid);
-      if (emp) {
-        totalAssigned++;
-        if (emp.type === 'إداري') totalAdmin++;
-        else totalResident++;
-      }
-    });
-  });
 
   const chiefs = employees.filter(e => getHierarchyRank(e.title) === 1);
   const deptHeads = employees.filter(e => getHierarchyRank(e.title) === 2);
   const supervisors = employees.filter(e => getHierarchyRank(e.title) === 3);
 
-  const today = new Date();
-  const todayStr = fmtDate(today);
-  const weekDates = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(today); d.setDate(today.getDate() + i); weekDates.push(fmtDate(d));
-  }
-
-  function buildHeader() {
-    let h = '<div style="text-align:center;margin-bottom:3mm;border-bottom:2px solid #1F4E78;padding-bottom:2mm;">';
-    h += '<div style="font-size:18px;font-weight:800;color:#1F4E78;margin-bottom:1px;">🛡️ المنظومة الجمركية الذكية</div>';
-    h += '<div style="font-size:10px;color:#64748B;">تقرير توزيع الموظفين على نقاط الخدمة — ' + getFullDateArabic() + '</div>';
-    h += '</div>';
-    h += '<div style="display:flex;gap:4px;margin-bottom:3mm;justify-content:center;font-size:8px;">';
-    h += '<div style="background:#1F4E78;color:white;padding:2px 6px;border-radius:4px;text-align:center;flex:1;"><div style="font-size:12px;font-weight:700;">' + pts.length + '</div><div>النقاط</div></div>';
-    h += '<div style="background:#0D9488;color:white;padding:2px 6px;border-radius:4px;text-align:center;flex:1;"><div style="font-size:12px;font-weight:700;">' + totalAdmin + '</div><div>إداري</div></div>';
-    h += '<div style="background:#D97706;color:white;padding:2px 6px;border-radius:4px;text-align:center;flex:1;"><div style="font-size:12px;font-weight:700;">' + totalResident + '</div><div>مقيم</div></div>';
-    h += '<div style="background:#1E293B;color:white;padding:2px 6px;border-radius:4px;text-align:center;flex:1;"><div style="font-size:12px;font-weight:700;">' + totalAssigned + '</div><div>المجموع</div></div>';
-    h += '</div>';
-    if (chiefs.length + deptHeads.length + supervisors.length > 0) {
-      h += '<div style="margin-bottom:3mm;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;padding:3px;">';
-      h += '<div style="font-size:9px;font-weight:700;color:#1F4E78;margin-bottom:2px;">🏛️ الهيكل الإشرافي</div>';
-      h += '<div style="display:flex;flex-wrap:wrap;gap:2px;">';
-      chiefs.forEach(emp => h += '<span style="background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:1px 4px;border-radius:3px;font-size:7px;font-weight:700;">👑 ' + escapeHTML(emp.name) + '</span>');
-      deptHeads.forEach(emp => h += '<span style="background:#EFF6FF;border:1px solid #60A5FA;color:#1E40AF;padding:1px 4px;border-radius:3px;font-size:7px;font-weight:700;">⭐ ' + escapeHTML(emp.name) + '</span>');
-      supervisors.forEach(emp => h += '<span style="background:#ECFDF5;border:1px solid #34D399;color:#065F46;padding:1px 4px;border-radius:3px;font-size:7px;font-weight:700;">🔰 ' + escapeHTML(emp.name) + '</span>');
-      h += '</div></div>';
-    }
-    return h;
-  }
-
-  function buildFooter() {
-    return '<div style="text-align:center;margin-top:2mm;padding-top:2mm;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:7px;">تم إنشاء هذا التقرير بواسطة المنظومة الجمركية الذكية | ' + getFullDateArabic() + '</div>';
-  }
-
-  function buildPointCard(p) {
+  let totalAdmin = 0, totalResident = 0;
+  pts.forEach(p => {
     const uids = as[p.id] || [];
-    const staffList = uids.map(uid => employees.find(e => e.uid === uid)).filter(Boolean);
-    const admins = staffList.filter(e => e.type === 'إداري');
-    const residents = staffList.filter(e => e.type === 'مقيم');
-    const count = staffList.length;
-    const required = p.required;
-    const surplus = count - required;
-
-    let statusColor, statusBg, statusBorder, statusText;
-    if (count === 0) {
-      statusColor = '#991B1B'; statusBg = '#FEF2F2'; statusBorder = '#FECACA'; statusText = '⚠️ فارغة';
-    } else if (count < required) {
-      statusColor = '#92400E'; statusBg = '#FFFBEB'; statusBorder = '#FDE68A'; statusText = '⚠️ نقص ' + (required - count);
-    } else if (count > required) {
-      statusColor = '#1E40AF'; statusBg = '#EFF6FF'; statusBorder = '#BFDBFE'; statusText = '🚨 فائض ' + surplus;
-    } else {
-      statusColor = '#166534'; statusBg = '#F0FDF4'; statusBorder = '#BBF7D0'; statusText = '✅ مكتملة';
-    }
-
-    // Multi-column for employee lists when many employees
-    const totalStaff = admins.length + residents.length;
-    const useCols = totalStaff > 16 ? 3 : (totalStaff > 6 ? 2 : 1);
-    const colStyle = useCols > 1 ? 'column-count:' + useCols + ';column-gap:3px;' : '';
-
-    // Week leaves
-    let weekLeavesHtml = '';
-    let hasWeekLeaves = false;
-    staffList.forEach(emp => {
-      const empLeave = leaves[emp.uid];
-      if (empLeave) {
-        const overlaps = weekDates.some(wd => wd >= empLeave.start && wd <= empLeave.end);
-        if (overlaps) {
-          hasWeekLeaves = true;
-          const icon = emp.type === 'إداري' ? '👔' : '👷';
-          weekLeavesHtml += '<div style="font-size:6px;padding:0;color:#92400E;">' + icon + ' ' + escapeHTML(emp.name) + ': ' + fmtDateArabic(empLeave.start) + ' → ' + fmtDateArabic(empLeave.end) + '</div>';
-        }
-      }
-      if (emp.type === 'إداري' && emp.restDays?.length) {
-        emp.restDays.forEach(rd => {
-          const rdNorm = normalize(rd);
-          const matchDay = weekDates.find(wd => {
-            const d = new Date(wd);
-            return normalize(getArabicDay(d.getDay() + 1)) === rdNorm;
-          });
-          if (matchDay) {
-            hasWeekLeaves = true;
-            weekLeavesHtml += '<div style="font-size:6px;padding:0;color:#1E40AF;">🛌 ' + escapeHTML(emp.name) + ': استراحة ' + rd + ' (' + fmtDateArabic(matchDay) + ')</div>';
-          }
-        });
+    uids.forEach(uid => {
+      const emp = employees.find(e => e.uid === uid);
+      if (emp) {
+        if (emp.type === 'إداري') totalAdmin++;
+        else totalResident++;
       }
     });
+  });
+  const totalAssigned = totalAdmin + totalResident;
 
-    let c = '<div style="border:1px solid #E2E8F0;border-radius:5px;overflow:hidden;background:white;break-inside:avoid-page;page-break-inside:avoid;margin-bottom:4px;">';
+  let html = '<div style="width:210mm;min-height:297mm;padding:12mm;box-sizing:border-box;background:#f8fafc;font-family:Cairo,sans-serif;direction:rtl;">';
 
-    c += '<div style="background:' + statusBg + ';padding:2px 5px;border-bottom:1px solid ' + statusBorder + ';display:flex;justify-content:space-between;align-items:center;">';
-    c += '<div style="font-weight:700;font-size:9px;color:' + statusColor + ';">📍 ' + escapeHTML(p.name) + '</div>';
-    c += '<div style="display:flex;gap:2px;">';
-    c += '<span style="font-size:7px;background:white;padding:1px 4px;border-radius:3px;color:' + statusColor + ';font-weight:700;border:1px solid ' + statusBorder + ';">' + count + '/' + required + '</span>';
-    c += '<span style="font-size:7px;background:' + statusColor + ';color:white;padding:1px 4px;border-radius:3px;font-weight:700;">' + statusText + '</span>';
-    c += '</div></div>';
+  // Header - compact
+  html += '<div style="text-align:center;margin-bottom:5mm;">';
+  html += '<div style="font-size:22px;font-weight:800;color:#1F4E78;margin-bottom:2mm;">🛡️ المنظومة الجمركية الذكية</div>';
+  html += '<div style="font-size:12px;color:#64748B;">تقرير توزيع الموظفين على نقاط الخدمة</div>';
+  html += '<div style="font-size:10px;color:#94a3b8;margin-top:1mm;">' + getFullDateArabic() + '</div>';
+  html += '</div>';
 
-    // Employee area with multi-column support
-    c += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">';
+  // Stats bar - compact horizontal
+  html += '<div style="display:flex;gap:4px;margin-bottom:5mm;justify-content:center;font-size:10px;">';
+  html += '<div style="background:#1F4E78;color:white;padding:4px 8px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:14px;font-weight:700;">' + pts.length + '</div><div>النقاط</div></div>';
+  html += '<div style="background:#0D9488;color:white;padding:4px 8px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:14px;font-weight:700;">' + totalAdmin + '</div><div>إداري</div></div>';
+  html += '<div style="background:#D97706;color:white;padding:4px 8px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:14px;font-weight:700;">' + totalResident + '</div><div>مقيم</div></div>';
+  html += '<div style="background:#1E293B;color:white;padding:4px 8px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:14px;font-weight:700;">' + totalAssigned + '</div><div>المجموع</div></div>';
+  html += '</div>';
 
-    c += '<div style="border-left:1px solid #E2E8F0;padding:2px;background:#F0FDFA;">';
-    c += '<div style="font-size:7px;font-weight:700;color:#0D9488;margin-bottom:1px;text-align:center;border-bottom:1px dashed #99F6E4;padding-bottom:1px;">👔 إداري (' + admins.length + ')</div>';
-    if (admins.length === 0) {
-      c += '<div style="font-size:7px;color:#94A3B8;text-align:center;padding:1px 0;">—</div>';
-    } else {
-      c += '<div style="' + colStyle + '">';
-      admins.forEach(emp => {
-        let badge = '';
-        const el = leaves[emp.uid];
-        if (el) {
-          if (todayStr >= el.start && todayStr <= el.end) badge = ' <span style="color:#DC2626;font-size:6px;">🌴</span>';
-          else if (el.start > todayStr) badge = ' <span style="color:#D97706;font-size:6px;">📅</span>';
-        }
-        if (emp.restDays?.some(d => normalize(d) === normalize(getTodayStr()))) badge += ' <span style="color:#2563EB;font-size:6px;">🛌</span>';
-        c += '<div style="font-size:7px;padding:0;color:#0F172A;font-weight:600;border-bottom:1px dotted #E2E8F0;break-inside:avoid;">' + escapeHTML(emp.name) + badge + '</div>';
-      });
-      c += '</div>';
-    }
-    c += '</div>';
+  // Hierarchy section - very compact
+  if (chiefs.length + deptHeads.length + supervisors.length > 0) {
+    html += '<div style="margin-bottom:4mm;">';
+    html += '<div style="font-size:11px;font-weight:700;color:#1F4E78;margin-bottom:2px;padding-bottom:2px;border-bottom:1px solid #1F4E78;display:inline-block;">الهيكلية الإشرافية</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px;">';
 
-    c += '<div style="padding:2px;background:#FFFBEB;">';
-    c += '<div style="font-size:7px;font-weight:700;color:#D97706;margin-bottom:1px;text-align:center;border-bottom:1px dashed #FDE68A;padding-bottom:1px;">👷 مقيم (' + residents.length + ')</div>';
-    if (residents.length === 0) {
-      c += '<div style="font-size:7px;color:#94A3B8;text-align:center;padding:1px 0;">—</div>';
-    } else {
-      c += '<div style="' + colStyle + '">';
-      residents.forEach(emp => {
-        let badge = '';
-        const el = leaves[emp.uid];
-        if (el) {
-          if (todayStr >= el.start && todayStr <= el.end) badge = ' <span style="color:#DC2626;font-size:6px;">🌴</span>';
-          else if (el.start > todayStr) badge = ' <span style="color:#D97706;font-size:6px;">📅</span>';
-        }
-        c += '<div style="font-size:7px;padding:0;color:#0F172A;font-weight:600;border-bottom:1px dotted #E2E8F0;break-inside:avoid;">' + escapeHTML(emp.name) + badge + '</div>';
-      });
-      c += '</div>';
-    }
-    c += '</div>';
+    chiefs.forEach(emp => {
+      html += '<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:4px;padding:2px 6px;font-size:9px;color:#92400E;font-weight:700;">👑 ' + emp.name + ' (مشرف عام)</div>';
+    });
+    deptHeads.forEach(emp => {
+      html += '<div style="background:#EFF6FF;border:1px solid #60A5FA;border-radius:4px;padding:2px 6px;font-size:9px;color:#1E40AF;font-weight:700;">⭐ ' + emp.name + ' (مسؤول قسم)</div>';
+    });
+    supervisors.forEach(emp => {
+      html += '<div style="background:#ECFDF5;border:1px solid #34D399;border-radius:4px;padding:2px 6px;font-size:9px;color:#065F46;font-weight:700;">🔰 ' + emp.name + ' (مشرف نقاط)</div>';
+    });
 
-    c += '</div>';
-
-    if (hasWeekLeaves) {
-      c += '<div style="background:#FEF3C7;padding:1px 4px;border-top:1px solid #FDE68A;">';
-      c += '<div style="font-size:7px;font-weight:700;color:#92400E;margin-bottom:0;">📅 إجازات هذا الأسبوع:</div>';
-      c += weekLeavesHtml;
-      c += '</div>';
-    } else if (count < required) {
-      c += '<div style="background:#FEF2F2;padding:1px 4px;border-top:1px solid #FECACA;"><div style="font-size:7px;font-weight:700;color:#991B1B;">⚠️ النقص: ' + (required - count) + ' موظف</div></div>';
-    } else if (count > required) {
-      c += '<div style="background:#EFF6FF;padding:1px 4px;border-top:1px solid #BFDBFE;"><div style="font-size:7px;font-weight:700;color:#1E40AF;">ℹ️ فائض ' + surplus + ' موظف</div></div>';
-    }
-
-    c += '</div>';
-    return c;
+    html += '</div></div>';
   }
 
-  // Sort: biggest points first to fill space efficiently
-  const sortedPts = [...pts].sort((a, b) => {
-    const countA = (as[a.id] || []).length;
-    const countB = (as[b.id] || []).length;
-    return countB - countA;
+  // Points table - compact table format
+  html += '<div style="font-size:11px;font-weight:700;color:#1F4E78;margin-bottom:2px;padding-bottom:2px;border-bottom:1px solid #1F4E78;display:inline-block;">📍 نقاط الخدمة</div>';
+
+  // Table header
+  html += '<table style="width:100%;border-collapse:collapse;font-size:9px;margin-top:2px;">';
+  html += '<thead><tr style="background:#1F4E78;color:white;">';
+  html += '<th style="padding:3px 4px;text-align:right;border:1px solid #1F4E78;font-size:9px;">النقطة</th>';
+  html += '<th style="padding:3px 4px;text-align:center;border:1px solid #1F4E78;font-size:9px;width:30px;">المطلوب</th>';
+  html += '<th style="padding:3px 4px;text-align:center;border:1px solid #1F4E78;font-size:9px;width:30px;">الموجود</th>';
+  html += '<th style="padding:3px 4px;text-align:center;border:1px solid #1F4E78;font-size:9px;width:30px;">الحالة</th>';
+  html += '<th style="padding:3px 4px;text-align:right;border:1px solid #1F4E78;font-size:9px;">الموظفون المفروزون</th>';
+  html += '</tr></thead><tbody>';
+
+  pts.forEach((p, idx) => {
+    const uids = as[p.id] || [];
+    const staffList = uids.map(uid => employees.find(e => e.uid === uid)).filter(Boolean);
+    staffList.sort((a, b) => getHierarchyRank(a.title) - getHierarchyRank(b.title));
+    const count = staffList.length;
+    const adminCount = staffList.filter(e => e.type === 'إداري').length;
+    const residentCount = staffList.filter(e => e.type === 'مقيم').length;
+
+    let statusColor = count === 0 ? '#991B1B' : count < p.required ? '#92400E' : '#166534';
+    let statusBg = count === 0 ? '#FEF2F2' : count < p.required ? '#FFFBEB' : '#F0FDF4';
+    let statusText = count === 0 ? 'فارغة' : count < p.required ? 'نقص' : 'مكتملة';
+
+    let staffText = '';
+    if (staffList.length > 0) {
+      staffText = staffList.map(emp => {
+        const rank = getHierarchyRank(emp.title);
+        let prefix = '';
+        if (rank === 2) prefix = '⭐ ';
+        else if (rank === 3) prefix = '🔰 ';
+        const typeBadge = emp.type === 'إداري' ? ' [إ]' : ' [م]';
+        return prefix + emp.name + typeBadge;
+      }).join('، ');
+    } else {
+      staffText = '<span style="color:#94a3b8;font-style:italic;">لا يوجد</span>';
+    }
+
+    html += '<tr style="background:' + (idx % 2 === 0 ? 'white' : '#F8FAFC') + ';">';
+    html += '<td style="padding:3px 4px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:#1e293b;">' + p.name + '<br><span style="font-size:8px;color:#94a3b8;font-weight:400;">' + p.id + '</span></td>';
+    html += '<td style="padding:3px 4px;border:1px solid #e2e8f0;text-align:center;font-weight:700;">' + p.required + '</td>';
+    html += '<td style="padding:3px 4px;border:1px solid #e2e8f0;text-align:center;font-weight:700;">' + count + '</td>';
+    html += '<td style="padding:3px 4px;border:1px solid #e2e8f0;text-align:center;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:1px 4px;border-radius:3px;font-size:8px;font-weight:700;">' + statusText + '</span></td>';
+    html += '<td style="padding:3px 4px;border:1px solid #e2e8f0;text-align:right;font-size:8px;line-height:1.4;">' + staffText + '</td>';
+    html += '</tr>';
   });
 
-  // Build all cards
-  const allCards = sortedPts.map(p => buildPointCard(p));
+  html += '</tbody></table>';
 
-  // Single page container with 2-column grid
-  let html = '<div style="width:210mm;min-height:297mm;padding:6mm;box-sizing:border-box;background:#fff;font-family:Cairo,sans-serif;direction:rtl;">';
-  html += buildHeader();
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-content:start;">';
-  html += allCards.join('');
+  // Footer
+  html += '<div style="text-align:center;margin-top:4mm;padding-top:2mm;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:9px;">';
+  html += 'تم إنشاء هذا التقرير بواسطة المنظومة الجمركية الذكية';
   html += '</div>';
-  html += buildFooter();
   html += '</div>';
 
   div.innerHTML = html;
 
-  html2canvas(div, { scale: 2, useCORS: true, backgroundColor: '#fff' }).then(canvas => {
+  html2canvas(div, { scale: 2, useCORS: true, backgroundColor: '#f8fafc' }).then(canvas => {
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = 210;
+    const pageHeight = 297;
     const margin = 0;
     const imgWidth = pageWidth - (margin * 2);
     const imgHeight = canvas.height * imgWidth / canvas.width;
     let heightLeft = imgHeight;
     let position = margin;
     doc.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-    heightLeft -= 297;
+    heightLeft -= (pageHeight - margin);
     while (heightLeft > 0) {
       position = heightLeft - imgHeight + margin;
       doc.addPage();
       doc.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-      heightLeft -= 297;
+      heightLeft -= (pageHeight - margin);
     }
     doc.save('توزيع_الموظفين_على_النقاط.pdf');
     div.innerHTML = '';
-    toast('تم تصدير التقرير');
+    toast('تم التصدير');
   }).catch(err => { console.error(err); toast('خطأ في التصدير', 'error'); });
 }
+
+// ===== Daily Report PDF - Matches Daily Stats Exactly =====
+function exportDailyReportPDF() {
+  const employees = DB.get('employees', []);
+  const leaves = DB.get('leaves', {});
+  const div = document.getElementById('pdfCapture');
+
+  const today = new Date();
+  const todayName = getArabicDay(today.getDay() + 1);
+  const todayStr = getFullDateArabic();
+
+  let total = 0, adminRest = 0, adminLeave = 0, resLeave = 0;
+  const adminRestList = [];
+  const adminLeaveList = [];
+  const resLeaveList = [];
+  const activeList = [];
+
+  employees.forEach(e => {
+    total++;
+    const onLeave = leaves[e.uid] && isBetween(today, leaves[e.uid].start, leaves[e.uid].end);
+    if (e.type === 'إداري') {
+      const td = normalize(getTodayStr());
+      if (e.restDays?.some(d => normalize(d) === td)) {
+        adminRest++;
+        adminRestList.push(e);
+      } else if (onLeave) {
+        adminLeave++;
+        adminLeaveList.push({...e, ...leaves[e.uid]});
+      } else {
+        activeList.push(e);
+      }
+    } else if (e.type === 'مقيم' && onLeave) {
+      resLeave++;
+      resLeaveList.push({...e, ...leaves[e.uid]});
+    } else {
+      activeList.push(e);
+    }
+  });
+
+  const unavailable = adminRest + adminLeave + resLeave;
+  const active = total - unavailable;
+
+  let html = '<div style="width:210mm;min-height:297mm;padding:15mm;box-sizing:border-box;background:#f8fafc;font-family:Cairo,sans-serif;direction:rtl;">';
+
+  html += '<div style="text-align:center;margin-bottom:8mm;">';
+  html += '<div style="font-size:26px;font-weight:800;color:#1F4E78;margin-bottom:3mm;">🛡️ المنظومة الجمركية الذكية</div>';
+  html += '<div style="font-size:14px;color:#64748B;">التقرير اليومي — مؤشر القوة</div>';
+  html += '<div style="font-size:12px;color:#94a3b8;margin-top:2mm;">' + todayStr + '</div>';
+  html += '</div>';
+
+  html += '<div style="display:flex;gap:8px;margin-bottom:8mm;justify-content:center;">';
+  html += '<div style="background:#1F4E78;color:white;padding:8px 16px;border-radius:8px;text-align:center;font-size:12px;flex:1;"><div style="font-size:18px;font-weight:700;">' + total + '</div><div>إجمالي الكادر</div></div>';
+  html += '<div style="background:#059669;color:white;padding:8px 16px;border-radius:8px;text-align:center;font-size:12px;flex:1;"><div style="font-size:18px;font-weight:700;">' + active + '</div><div>متاح للعمل</div></div>';
+  html += '<div style="background:#DC2626;color:white;padding:8px 16px;border-radius:8px;text-align:center;font-size:12px;flex:1;"><div style="font-size:18px;font-weight:700;">' + unavailable + '</div><div>غياب</div></div>';
+  html += '</div>';
+
+  html += '<div style="display:flex;gap:8px;margin-bottom:8mm;justify-content:center;font-size:11px;">';
+  html += '<div style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF;padding:6px 12px;border-radius:8px;text-align:center;flex:1;"><div style="font-size:16px;font-weight:700;">' + adminRest + '</div><div>استراحة</div></div>';
+  html += '<div style="background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;padding:6px 12px;border-radius:8px;text-align:center;flex:1;"><div style="font-size:16px;font-weight:700;">' + adminLeave + '</div><div>إجازة إداري</div></div>';
+  html += '<div style="background:#F0FDFA;border:1px solid #99F6E4;color:#0D9488;padding:6px 12px;border-radius:8px;text-align:center;flex:1;"><div style="font-size:16px;font-weight:700;">' + resLeave + '</div><div>إجازة مقيم</div></div>';
+  html += '</div>';
+
+  if (adminRestList.length > 0) {
+    html += '<div style="margin-bottom:8mm;">';
+    html += '<div style="font-size:16px;font-weight:700;color:#1E40AF;margin-bottom:5px;padding-bottom:4px;border-bottom:2px solid #60A5FA;display:inline-block;">🛌 الإداريون في يوم الاستراحة (' + adminRest + ')</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:5px;">';
+    adminRestList.forEach(e => {
+      html += '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px;">';
+      html += '<div style="font-weight:700;font-size:13px;color:#1e293b;">' + e.name + '</div>';
+      html += '<div style="font-size:11px;color:#64748B;">الرقم: ' + e.uid + ' | يوم الاستراحة: ' + (e.restDays?.join(' و ') || '') + '</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  }
+
+  if (adminLeaveList.length > 0) {
+    html += '<div style="margin-bottom:8mm;">';
+    html += '<div style="font-size:16px;font-weight:700;color:#92400E;margin-bottom:5px;padding-bottom:4px;border-bottom:2px solid #F59E0B;display:inline-block;">🌴 الإداريون في إجازة (' + adminLeave + ')</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:5px;">';
+    adminLeaveList.forEach(e => {
+      html += '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px;">';
+      html += '<div style="font-weight:700;font-size:13px;color:#1e293b;">' + e.name + '</div>';
+      html += '<div style="font-size:11px;color:#64748B;">الرقم: ' + e.uid + '</div>';
+      html += '<div style="font-size:11px;color:#92400E;font-weight:600;">📅 ' + e.start + ' → ' + e.end + '</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  }
+
+  if (resLeaveList.length > 0) {
+    html += '<div style="margin-bottom:8mm;">';
+    html += '<div style="font-size:16px;font-weight:700;color:#0D9488;margin-bottom:5px;padding-bottom:4px;border-bottom:2px solid #34D399;display:inline-block;">🌴 المقيمون في إجازة (' + resLeave + ')</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:5px;">';
+    resLeaveList.forEach(e => {
+      html += '<div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:10px;padding:10px;">';
+      html += '<div style="font-weight:700;font-size:13px;color:#1e293b;">' + e.name + '</div>';
+      html += '<div style="font-size:11px;color:#64748B;">الرقم: ' + e.uid + '</div>';
+      html += '<div style="font-size:11px;color:#0D9488;font-weight:600;">📅 ' + e.start + ' → ' + e.end + '</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  }
+
+  if (activeList.length > 0) {
+    html += '<div style="margin-bottom:8mm;">';
+    html += '<div style="font-size:16px;font-weight:700;color:#059669;margin-bottom:5px;padding-bottom:4px;border-bottom:2px solid #34D399;display:inline-block;">✅ المتاحون للعمل (' + active + ')</div>';
+    html += '<div style="font-size:11px;color:#64748B;margin-bottom:4px;">الموظفون غير المذكورين في الأقسام السابقة</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">';
+    activeList.forEach(e => {
+      const typeColor = e.type === 'إداري' ? '#0D9488' : '#D97706';
+      const typeBg = e.type === 'إداري' ? '#ECFDF5' : '#FFFBEB';
+      html += '<span style="background:' + typeBg + ';color:' + typeColor + ';padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;border:1px solid ' + typeColor + '33;">' + e.name + '</span>';
+    });
+    html += '</div></div>';
+  }
+
+  html += '<div style="text-align:center;margin-top:10mm;padding-top:5mm;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:11px;">';
+  html += 'تم إنشاء هذا التقرير بواسطة المنظومة الجمركية الذكية';
+  html += '</div>';
+  html += '</div>';
+
+  div.innerHTML = html;
+
+  html2canvas(div, { scale: 2, useCORS: true, backgroundColor: '#f8fafc' }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 0;
+    const imgWidth = pageWidth - (margin * 2);
+    const imgHeight = canvas.height * imgWidth / canvas.width;
+    let heightLeft = imgHeight;
+    let position = margin;
+    doc.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+    heightLeft -= (pageHeight - margin);
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight + margin;
+      doc.addPage();
+      doc.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= (pageHeight - margin);
+    }
+    doc.save('التقرير_اليومي_' + fmtDate(new Date()) + '.pdf');
+    div.innerHTML = '';
+    toast('تم تصدير التقرير اليومي');
+  }).catch(err => { console.error(err); toast('خطأ في التصدير', 'error'); });
+}
+
 // ===== Export Leaves PDF with Date Filter =====
 function exportLeavesPDF() {
   const today = fmtDate(new Date());
