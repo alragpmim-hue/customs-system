@@ -1,23 +1,13 @@
-// ===== CACHE BUSTER v2.2 =====
+// ===== CACHE BUSTER v2.1 =====
 // يضمن ظهور التحديثات على جميع الأجهزة فوراً
 (function() {
-  const APP_VERSION = '2026.07.21-1025';
+  const APP_VERSION = '2.1';
   const CACHE_KEY = 'customs_app_v';
 
   const saved = localStorage.getItem(CACHE_KEY);
 
   if (saved && saved !== APP_VERSION) {
     console.log('🔄 تحديث جديد detected:', APP_VERSION);
-
-    // ⛔ إلغاء تسجيل Service Worker القديم
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(r => {
-          console.log('⛔ إلغاء SW قديم:', r.scope);
-          r.unregister();
-        });
-      });
-    }
 
     // مسح كاش المتصفح فقط (لا يمسح بياناتك!)
     if ('caches' in window) {
@@ -26,8 +16,8 @@
 
     localStorage.setItem(CACHE_KEY, APP_VERSION);
 
-    // إعادة تحميل بدون كاش (تأخير أطول لإعطاء وقت لإلغاء SW)
-    setTimeout(() => location.reload(true), 500);
+    // إعادة تحميل بدون كاش
+    setTimeout(() => location.reload(true), 300);
     return;
   }
 
@@ -1030,15 +1020,33 @@ function openPointDetails(pid) {
   notAssigned.sort(sortByHierarchy);
 
   // Build HTML using data attributes for event delegation (NO inline onclick)
+  // 🔔 التحقق من إجازات الموظفين المفرزين
+  const allLeaves = DB.get('leaves', {});
+
   let assignedHereHtml = assignedHere.map(e => {
     const rank = getHierarchyRank(e.title);
     let titleLine = '';
     if (rank === 2) titleLine = `<div style="font-size:0.65rem;color:#1E40AF;font-weight:700;margin-bottom:1px;">⭐ رئيس قسم</div>`;
     else if (rank === 3) titleLine = `<div style="font-size:0.65rem;color:#065F46;font-weight:700;margin-bottom:1px;">🔰 مشرف</div>`;
     else if (e.title) titleLine = `<div style="font-size:0.65rem;color:#64748B;font-weight:600;margin-bottom:1px;">${escapeHTML(e.title)}</div>`;
+
+    // 🔔 إضافة إشعار الإجازة
+    let leaveInfo = '';
+    const empLeave = allLeaves[e.uid];
+    if (empLeave) {
+      const leaveStart = dateOnly(empLeave.start);
+      const leaveEnd = dateOnly(empLeave.end);
+      const today = dateOnly(new Date());
+      if (leaveStart > today) {
+        leaveInfo = `<div style="font-size:0.65rem;color:#92400E;font-weight:700;background:#FEF3C7;padding:2px 6px;border-radius:4px;margin-top:2px;border:1px solid #F59E0B;display:inline-block;">📅 إجازة قادمة: ${fmtDateArabic(empLeave.start)} → ${fmtDateArabic(empLeave.end)}</div>`;
+      } else if (today >= leaveStart && today <= leaveEnd) {
+        leaveInfo = `<div style="font-size:0.65rem;color:#92400E;font-weight:700;background:#FFFBEB;padding:2px 6px;border-radius:4px;margin-top:2px;border:1px solid #F59E0B;display:inline-block;">🌴 في إجازة حتى ${fmtDateArabic(empLeave.end)}</div>`;
+      }
+    }
+
     return `
     <div class="list-item point-row" data-action="remove" data-uid="${sanitizeAttr(e.uid)}" data-pid="${sanitizeAttr(pid)}" style="${rank <= 3 ? 'background:rgba(245,158,11,0.03);' : ''}">
-      <div>${titleLine}<div class="title">${escapeHTML(e.name)}</div><div class="subtitle">${escapeHTML(e.type)} | ${escapeHTML(e.uid)}</div></div>
+      <div>${titleLine}<div class="title">${escapeHTML(e.name)}</div><div class="subtitle">${escapeHTML(e.type)} | ${escapeHTML(e.uid)}</div>${leaveInfo}</div>
       <button class="btn btn-danger btn-sm point-action-btn" data-action="remove" data-uid="${sanitizeAttr(e.uid)}" data-pid="${sanitizeAttr(pid)}">سحب</button>
     </div>
   `;
@@ -1354,6 +1362,23 @@ function renderEmployees() {
     const originalIndex = employees.indexOf(e);
     const rest = e.restDays?.length ? e.restDays.join(' - ') : 'غير محدد';
     const qualBadge = e.qualification ? `<span style="background:#E0E7FF;color:#3730A3;font-size:0.65rem;padding:1px 6px;border-radius:4px;margin-right:4px;font-weight:600;">🎓 ${escapeHTML(e.qualification)}</span>` : '';
+
+    // 🔔 التحقق من إجازة مستقبلية أو حالية
+    const empLeaves = DB.get('leaves', {});
+    const empLeave = empLeaves[e.uid];
+    let leaveBadge = '';
+    if (empLeave) {
+      const leaveStart = dateOnly(empLeave.start);
+      const leaveEnd = dateOnly(empLeave.end);
+      const today = dateOnly(new Date());
+      if (leaveStart > today) {
+        // إجازة مستقبلية
+        leaveBadge = `<span style="background:#FEF3C7;color:#92400E;font-size:0.65rem;padding:1px 6px;border-radius:4px;margin-right:4px;font-weight:700;border:1px solid #F59E0B;">📅 إجازة قادمة: ${fmtDateArabic(empLeave.start)} → ${fmtDateArabic(empLeave.end)}</span>`;
+      } else if (today >= leaveStart && today <= leaveEnd) {
+        // في إجازة حالياً
+        leaveBadge = `<span style="background:#FFFBEB;color:#92400E;font-size:0.65rem;padding:1px 6px;border-radius:4px;margin-right:4px;font-weight:700;border:1px solid #F59E0B;">🌴 في إجازة حتى ${fmtDateArabic(empLeave.end)}</span>`;
+      }
+    }
     const rank = getHierarchyRank(e.title);
     let titleBadge = '';
     if (rank === 1) {
@@ -1369,7 +1394,7 @@ function renderEmployees() {
     return `
       <div class="list-item" style="${rank <= 3 ? 'background:rgba(245,158,11,0.05);' : ''}">
         <div>
-          <div class="title">${escapeHTML(e.name)} ${titleBadge} ${qualBadge} ${nonAssignable}</div>
+          <div class="title">${escapeHTML(e.name)} ${titleBadge} ${qualBadge} ${leaveBadge} ${nonAssignable}</div>
           <div class="subtitle">الرقم: ${escapeHTML(e.uid)} | ${escapeHTML(e.job)}${e.type==='إداري'?'<br>استراحة: '+escapeHTML(rest):''}</div>
         </div>
         <div class="actions">
@@ -1663,19 +1688,32 @@ function renderPendingRequests() {
 }
 
 function openDirectLeaveModal() {
-  const employees = DB.get('employees', []);
-  const opts = employees.map(e => `<option value="${sanitizeAttr(e.uid)}">${escapeHTML(e.name)} (${escapeHTML(e.type)})</option>`).join('');
-
-  // Generate date chips like in openLeaveRequest
+  // Generate date chips with weekday names
   const today = new Date();
+  const weekdays = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
   let chips = '';
   for (let i = 0; i <= 30; i++) {
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-    chips += `<span class="chip" data-date="${fmtDate(d)}" onclick="toggleDirectLeaveDate(this)">${d.getDate()}/${d.getMonth()+1}</span>`;
+    const dayName = weekdays[d.getDay()];
+    chips += `<span class="chip" data-date="${fmtDate(d)}" onclick="toggleDirectLeaveDate(this)"><strong>${d.getDate()}/${d.getMonth()+1}</strong><br><small style="font-size:0.6rem;">${dayName}</small></span>`;
   }
 
   openModal('تسجيل إجازة مباشرة', `
-    <div class="form-group"><label>الموظف</label><select id="dlEmp">${opts}</select></div>
+    <div class="form-group">
+      <label>الموظف</label>
+      <div class="search-box" id="leaveSearchBox" style="position:relative;">
+        <input type="text" id="dlEmpSearch" placeholder="أدخل الاسم الكامل أو الرقم الذاتي..." 
+          oninput="filterLeaveEmpDropdown()" 
+          onfocus="showLeaveEmpDropdown()" 
+          autocomplete="off" 
+          style="width:100%;padding:0.6rem 0.9rem;border:1px solid var(--border);border-radius:10px;">
+        <div class="emp-dropdown" id="leaveEmpDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);max-height:250px;overflow-y:auto;z-index:150;"></div>
+      </div>
+      <input type="hidden" id="dlEmpUid" value="">
+      <div id="selectedLeaveEmp" style="margin-top:0.5rem;padding:0.5rem;background:#F0FDFA;border-radius:8px;display:none;">
+        <span style="font-weight:700;color:#0D9488;"></span>
+      </div>
+    </div>
     <div class="form-group">
       <label>اختر التواريخ:</label>
       <div class="chips" id="directLeaveDateChips">${chips}</div>
@@ -1685,6 +1723,67 @@ function openDirectLeaveModal() {
     <button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
     <button class="btn btn-primary" onclick="saveDirectLeave()">تسجيل</button>
   `);
+}
+
+function showLeaveEmpDropdown() {
+  const dropdown = document.getElementById('leaveEmpDropdown');
+  if (!dropdown) return;
+  dropdown.innerHTML = buildLeaveEmpDropdownHTML('');
+  dropdown.style.display = 'block';
+}
+
+function filterLeaveEmpDropdown() {
+  const input = document.getElementById('dlEmpSearch');
+  const dropdown = document.getElementById('leaveEmpDropdown');
+  if (!input || !dropdown) return;
+
+  const val = input.value.trim();
+  if (!val) {
+    dropdown.style.display = 'none';
+    return;
+  }
+
+  dropdown.innerHTML = buildLeaveEmpDropdownHTML(val);
+  dropdown.style.display = 'block';
+}
+
+function buildLeaveEmpDropdownHTML(filterText) {
+  const employees = DB.get('employees', []);
+  const cq = normalize(filterText || '');
+  let filtered = employees;
+  if (cq) {
+    filtered = employees.filter(e => normalize(e.name).includes(cq) || e.uid.includes(filterText));
+  }
+  if (!filtered.length) {
+    return '<div class="emp-dropdown-empty">لا توجد نتائج</div>';
+  }
+  return filtered.map(e => {
+    const typeClass = e.type === 'إداري' ? 'admin' : 'resident';
+    const typeLabel = e.type === 'إداري' ? 'إداري' : 'مقيم';
+    return `<div class="emp-dropdown-item" onclick="selectLeaveEmp('${sanitizeAttr(e.uid)}', '${sanitizeAttr(e.name)}', '${sanitizeAttr(e.type)}')">
+      <div>
+        <div class="emp-name">${escapeHTML(e.name)}</div>
+        <div class="emp-meta">الرقم: ${escapeHTML(e.uid)}</div>
+      </div>
+      <span class="emp-type ${typeClass}">${typeLabel}</span>
+    </div>`;
+  }).join('');
+}
+
+function selectLeaveEmp(uid, name, type) {
+  const input = document.getElementById('dlEmpSearch');
+  const hidden = document.getElementById('dlEmpUid');
+  const dropdown = document.getElementById('leaveEmpDropdown');
+  const selected = document.getElementById('selectedLeaveEmp');
+
+  if (input) input.value = name;
+  if (hidden) hidden.value = uid;
+  if (dropdown) dropdown.style.display = 'none';
+
+  if (selected) {
+    selected.style.display = 'block';
+    selected.querySelector('span').textContent = `✅ ${name} (${type}) — الرقم: ${uid}`;
+  }
 }
 
 function toggleDirectLeaveDate(el) {
@@ -1718,7 +1817,27 @@ function updateDirectLeaveCount() {
 }
 
 function saveDirectLeave() {
-  const uid = document.getElementById('dlEmp').value;
+  let uid = document.getElementById('dlEmpUid').value;
+  const searchInput = document.getElementById('dlEmpSearch');
+
+  if (!uid && searchInput) {
+    // Fallback: try to find by name
+    const name = searchInput.value.trim();
+    const employees = DB.get('employees', []);
+    const emp = employees.find(e => normalize(e.name) === normalize(name));
+    if (emp) {
+      uid = emp.uid;
+    } else {
+      toast('❌ اختر موظفاً أولاً', 'error');
+      return;
+    }
+  }
+
+  if (!uid) {
+    toast('❌ اختر موظفاً أولاً', 'error');
+    return;
+  }
+
   const selected = document.querySelectorAll('#directLeaveDateChips .chip.selected');
   if (!selected.length) { toast('اختر تاريخاً واحداً على الأقل', 'error'); return; }
 
@@ -1745,16 +1864,32 @@ function saveDirectLeave() {
   leaves[uid] = { start, end };
   DB.set('leaves', leaves);
   addActivityLog('تسجيل إجازة', `${getEmployeeByUid(uid)?.name || uid}: ${start} → ${end}`);
-  const as = DB.get('assignments', {});
+
+  // ✅ استدعاء فوري لتطبيق القيود — يُسحب الموظف إذا كانت الإجازة لليوم الحالي
+  const constraintsResult = enforceDailyConstraints(true);
+
   const pid = getEmployeePoint(uid);
-  if (pid) {
-    as[pid] = (as[pid]||[]).filter(u => u !== uid);
-    DB.set('assignments', as);
-  }
+  const pointName = pid ? getPointName(pid) : 'غير مفرز';
+
   closeModal();
   renderLeaves();
   renderDailyStats();
-  toast('✅ تم التسجيل');
+  renderPointsGrid();
+  renderUnassignedPoolCard();
+
+  // 🔔 رسالة تنبيه للمشرف - دقيقة حسب ما فعله enforceDailyConstraints()
+  const todayStr = fmtDate(new Date());
+  const wasRemoved = constraintsResult.removedList.some(r => r.name === (emp?.name || uid));
+
+  if (wasRemoved) {
+    // تم السحب فعلياً من النقطة
+    toast(`📅 تم تسجيل إجازة ${emp?.name || uid} لليوم الحالي (${fmtDateArabic(start)}). ✅ تم السحب تلقائياً من نقطة ${pointName}.`, 'warning');
+    addActivityLog('تسجيل إجازة فورية', `${emp?.name || uid}: ${start} → ${end} — تم السحب تلقائياً من نقطة ${pointName}`);
+  } else {
+    // لم يُسحب (إجازة لاحقة أو غير مفرز أصلاً)
+    toast(`📅 تم تسجيل إجازة ${emp?.name || uid} من ${fmtDateArabic(start)} إلى ${fmtDateArabic(end)}. سيبقى في نقطة ${pointName} حتى يوم الإجازة.`, 'warning');
+    addActivityLog('تسجيل إجازة مستقبلية', `${emp?.name || uid}: ${start} → ${end} — سيبقى في نقطة ${pointName} حتى يوم الإجازة`);
+  }
 }
 
 function deleteLeave(uid) {
@@ -1862,6 +1997,79 @@ function resetAllAssignments() {
   toast(`✅ تم إلغاء فرز ${totalAssigned} موظف بنجاح!`, 'success');
 }
 
+// ===== Force Reset All Data =====
+function forceResetAllData() {
+  const employees = DB.get('employees', []);
+  const points = DB.get('points', []);
+  const assignments = DB.get('assignments', {});
+  const leaves = DB.get('leaves', {});
+  const requests = DB.get('requests', {});
+
+  const empCount = employees.length;
+  const pointCount = points.length;
+  let assignedCount = 0;
+  for (const pid of Object.keys(assignments)) {
+    assignedCount += (assignments[pid] || []).length;
+  }
+  const leaveCount = Object.keys(leaves).length;
+  const requestCount = Object.values(requests).filter(r => r.status === 'pending').length;
+
+  const msg = `🔴 تحذير نهائي — حذف جميع البيانات!
+
+` +
+    `⚠️ سيتم حذف جميع بيانات التطبيق وإعادة تعيينها من الصفر!
+
+` +
+    `• الموظفين: ${empCount}
+` +
+    `• النقاط: ${pointCount}
+` +
+    `• المفرزين: ${assignedCount}
+` +
+    `• الإجازات المعتمدة: ${leaveCount}
+` +
+    `• الطلبات المعلقة: ${requestCount}
+
+` +
+    `❌ لا يمكن التراجع عن هذا الإجراء نهائياً.
+` +
+    `❌ سيتم فقدان جميع البيانات بما فيها الفرز والإجازات.
+
+` +
+    `✅ اكتب "حذف نهائي" للتأكيد:`;
+
+  const confirm1 = prompt(msg);
+  if (confirm1 !== 'حذف نهائي') {
+    toast('❌ تم إلغاء إعادة التعيين', 'warning');
+    return;
+  }
+
+  // تأكيد إضافي
+  if (!confirm('⚠️ هل أنت متأكد تماماً؟ سيتم فقدان جميع البيانات بشكل دائم!')) {
+    toast('❌ تم إلغاء إعادة التعيين', 'warning');
+    return;
+  }
+
+  // مسح جميع البيانات
+  localStorage.removeItem('employees');
+  localStorage.removeItem('points');
+  localStorage.removeItem('assignments');
+  localStorage.removeItem('leaves');
+  localStorage.removeItem('requests');
+  localStorage.removeItem('backups');
+  localStorage.removeItem('activityLogs');
+  localStorage.removeItem('lastBackup');
+  localStorage.removeItem('customs_data_version');
+
+  addActivityLog('إعادة تعيين كامل', 'تم حذف جميع البيانات وإعادة تعيين التطبيق');
+
+  toast('🔴 تم إعادة تعيين جميع البيانات. جاري إعادة التحميل...', 'error');
+
+  setTimeout(() => {
+    location.reload(true);
+  }, 2000);
+}
+
 
 function approveRequest(key) {
   const reqs = DB.get('requests', {});
@@ -1875,12 +2083,29 @@ function approveRequest(key) {
   reqs[key].status = 'approved';
   DB.set('requests', reqs);
   addActivityLog('اعتماد إجازة', `${r.employeeName}: ${r.dates[0]} → ${r.dates[r.dates.length-1]}`);
-  const as = DB.get('assignments', {});
-  const pid = getEmployeePoint(r.uid);
-  if (pid) { as[pid] = (as[pid]||[]).filter(u => u !== r.uid); DB.set('assignments', as); }
+
+  // ✅ استدعاء فوري لتطبيق القيود — يُسحب الموظف إذا كانت الإجازة لليوم الحالي
+  const constraintsResult = enforceDailyConstraints(true);
+
+  const pointName = getEmployeePoint(r.uid) ? getPointName(getEmployeePoint(r.uid)) : 'غير مفرز';
+
   renderLeaves();
   renderDailyStats();
-  toast('✅ تم القبول');
+  renderPointsGrid();
+  renderUnassignedPoolCard();
+
+  // 🔔 رسالة تنبيه للمشرف - دقيقة حسب ما فعله enforceDailyConstraints()
+  const todayStr = fmtDate(new Date());
+  const leaveStart = r.dates[0];
+  const wasRemoved = constraintsResult.removedList.some(item => item.name === r.employeeName);
+
+  if (wasRemoved) {
+    // تم السحب فعلياً من النقطة
+    toast(`📅 تم اعتماد إجازة ${r.employeeName} لليوم الحالي (${fmtDateArabic(r.dates[0])}). ✅ تم السحب تلقائياً من نقطة ${pointName}.`, 'warning');
+  } else {
+    // لم يُسحب (إجازة لاحقة أو غير مفرز أصلاً)
+    toast(`📅 تم اعتماد إجازة ${r.employeeName} من ${fmtDateArabic(r.dates[0])} إلى ${fmtDateArabic(r.dates[r.dates.length-1])}. سيبقى في نقطة ${pointName} حتى يوم الإجازة.`, 'warning');
+  }
 }
 
 function rejectRequest(key) {
@@ -1909,11 +2134,13 @@ function openLeaveRequest(uid) {
     toast('لديك طلب معلق بالفعل', 'warning'); return;
   }
   const today = new Date();
+  const weekdays = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
   let chips = '';
   for (let i = 0; i <= 30; i++) {
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
     const isRest = emp.type === 'إداري' && emp.restDays?.some(rd => normalize(rd) === normalize(getArabicDay(d.getDay() + 1)));
-    chips += `<span class="chip ${isRest?'rest-day':''}" data-date="${fmtDate(d)}" ${isRest?'':'onclick="toggleLeaveDate(this)"'}>${d.getDate()}/${d.getMonth()+1}</span>`;
+    const dayName = weekdays[d.getDay()];
+    chips += `<span class="chip ${isRest?'rest-day':''}" data-date="${fmtDate(d)}" ${isRest?'':'onclick="toggleLeaveDate(this)"'}><strong>${d.getDate()}/${d.getMonth()+1}</strong><br><small style="font-size:0.6rem;">${dayName}</small></span>`;
   }
   openModal(`📝 طلب إجازة - ${escapeHTML(emp.name)}`, `
     <div class="form-group">
@@ -2701,7 +2928,7 @@ function generateLeavesPDF() {
 
 function enforceDailyConstraints(silent = false) {
   const now = new Date();
-  const today = dateOnly(now);
+  const todayStr = fmtDate(now); // "YYYY-MM-DD" سلسلة نصية لتجنب مشاكل المنطقة الزمنية
   const todayName = normalize(getArabicDay(now.getDay() + 1));
   const employees = DB.get('employees', []);
   const leaves = DB.get('leaves', {});
@@ -2719,8 +2946,20 @@ function enforceDailyConstraints(silent = false) {
     for (const uid of uids) {
       const emp = employees.find(e => e.uid === uid);
       if (!emp) continue;
-      const onLeave = leaves[uid] && isBetween(new Date(), leaves[uid].start, leaves[uid].end);
+
+      // 🔧 إصلاح: مقارنة السلاسل النصية مباشرة لتجنب مشاكل المنطقة الزمنية
+      // fmtDate() تُعيد "YYYY-MM-DD" ونقارنها مباشرة
+      let onLeave = false;
+      if (leaves[uid]) {
+        const leaveStart = leaves[uid].start; // "YYYY-MM-DD"
+        const leaveEnd = leaves[uid].end;     // "YYYY-MM-DD"
+        // يُسحب إذا كان اليوم >= بداية الإجازة (يوم الإجازة أو بعده)
+        // و اليوم <= نهاية الإجازة (لا يزال ضمن فترة الإجازة)
+        onLeave = (todayStr >= leaveStart && todayStr <= leaveEnd);
+      }
+
       const onRest = emp.type === 'إداري' && emp.restDays?.some(d => normalize(d) === todayName);
+
       if (onLeave || onRest) {
         toRemove.push(uid);
         backups[uid] = pid;
@@ -2738,9 +2977,18 @@ function enforceDailyConstraints(silent = false) {
   for (const [uid, pid] of Object.entries(backups)) {
     const emp = employees.find(e => e.uid === uid);
     if (!emp) { delete backups[uid]; continue; }
-    const onLeave = leaves[uid] && isBetween(new Date(), leaves[uid].start, leaves[uid].end);
+
+    // 🔧 إصلاح: مقارنة السلاسل النصية مباشرة
+    let onLeave = false;
+    if (leaves[uid]) {
+      const leaveEnd = leaves[uid].end; // "YYYY-MM-DD"
+      // لا يزال في إجازة إذا كان اليوم <= نهاية الإجازة
+      onLeave = (todayStr <= leaveEnd);
+    }
+
     const onRest = emp.type === 'إداري' && emp.restDays?.some(d => normalize(d) === todayName);
 
+    // يُرجع فقط إذا لم يكن في إجازة (اليوم > نهاية الإجازة) ولا في استراحة
     if (!onLeave && !onRest) {
       const alreadyAssigned = Object.values(as).some(uids => uids.includes(uid));
       if (!alreadyAssigned) {
@@ -2764,11 +3012,21 @@ function enforceDailyConstraints(silent = false) {
   if (!silent && isAdmin) {
     if (removedCount > 0) {
       const names = removedList.map(r => r.name).join('، ');
-      toast(`⛔ تم سحب ${removedCount} موظف تلقائياً (${names})`, 'warning');
+      const points = [...new Set(removedList.map(r => r.point))].join('، ');
+      toast(`⛔ تم سحب ${removedCount} موظف تلقائياً: ${names} من نقاطهم`, 'warning');
+
+      removedList.forEach(r => {
+        toast(`📅 ${r.name} في ${r.reason} — تم السحب من ${r.point}`, 'warning');
+      });
     }
     if (restoredCount > 0) {
       const names = restoredList.map(r => r.name).join('، ');
-      toast(`✅ تم إرجاع ${restoredCount} موظف تلقائياً (${names})`, 'success');
+      const points = [...new Set(restoredList.map(r => r.point))].join('، ');
+      toast(`✅ تم إرجاع ${restoredCount} موظف تلقائياً: ${names} إلى نقاطهم`, 'success');
+
+      restoredList.forEach(r => {
+        toast(`🔄 ${r.name} عاد إلى نقطة ${r.point} بعد انتهاء الإجازة/الاستراحة`, 'success');
+      });
     }
   }
 

@@ -1,7 +1,7 @@
 // ===== Secure Authentication Module =====
 
 const AUTH_KEY = 'customs_auth';
-const SESSION_KEY = 'customs_session';
+const SESSION_KEY = 'customs_session_v2';
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours
@@ -78,7 +78,7 @@ const authManager = {
 
   // Check rate limiting
   checkRateLimit() {
-    const attempts = JSON.parse(sessionStorage.getItem('auth_attempts') || '[]');
+    const attempts = JSON.parse(localStorage.getItem('auth_attempts') || '[]');
     const now = Date.now();
     const recent = attempts.filter(t => now - t < LOCKOUT_DURATION);
 
@@ -93,9 +93,9 @@ const authManager = {
 
   // Record failed attempt
   recordAttempt() {
-    const attempts = JSON.parse(sessionStorage.getItem('auth_attempts') || '[]');
+    const attempts = JSON.parse(localStorage.getItem('auth_attempts') || '[]');
     attempts.push(Date.now());
-    sessionStorage.setItem('auth_attempts', JSON.stringify(attempts));
+    localStorage.setItem('auth_attempts', JSON.stringify(attempts));
   },
 
   // Create session
@@ -105,13 +105,13 @@ const authManager = {
       expiresAt: Date.now() + SESSION_DURATION,
       token: this.generateSalt()
     };
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     return session;
   },
 
   // Validate session
   validateSession() {
-    const stored = sessionStorage.getItem(SESSION_KEY);
+    const stored = localStorage.getItem(SESSION_KEY);
     if (!stored) return false;
     const session = JSON.parse(stored);
     return Date.now() < session.expiresAt;
@@ -119,7 +119,7 @@ const authManager = {
 
   // Clear session
   clearSession() {
-    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
   },
 
   // Check if password needs setup (first time)
